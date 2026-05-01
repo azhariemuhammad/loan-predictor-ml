@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoanInsight AI | Intelligent Loan Predictor</title>
+    <meta name="description" content="Predict loan default probability with state-of-the-art machine learning models powered by Appwrite.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="app-container">
+        <header class="hero-section">
+            <h1 class="glitch-text" data-text="LoanInsight AI">LoanInsight AI</h1>
+        </header>
+
+        <div class="glass-card">
+            <form id="prediction-form">
+                <div class="form-section">
+                    <h3>Business Financials</h3>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="ebitda_margin">ebitda_margin</label>
+                            <input type="number" min="1" max="4" id="ebitda_margin" name="ebitda_margin" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="revenue_size">revenue_size</label>
+                            <input type="number" min="1" max="4" id="revenue_size" name="revenue_size" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="existing_dscr">existing_dscr</label>
+                            <input type="number" min="1" max="4" id="existing_dscr" name="existing_dscr" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="yoy_revenue_growth">yoy_revenue_growth</label>
+                            <input type="number" min="1" max="4" id="yoy_revenue_growth" name="yoy_revenue_growth" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="total_debt_to_ebitda">total_debt_to_ebitda</label>
+                            <input type="number" min="1" max="4" id="total_debt_to_ebitda" name="total_debt_to_ebitda" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="trade_cycle">trade_cycle</label>
+                            <input type="number" min="1" max="4" id="trade_cycle" name="trade_cycle" placeholder="1-4" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Risk & Credit History</h3>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="average_credit_bank_statement__sales">average_credit_bank_statement__sales</label>
+                            <input type="number" min="1" max="4" id="average_credit_bank_statement__sales" name="average_credit_bank_statement__sales" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="past_due_receivables__30_days">past_due_receivables__30_days</label>
+                            <input type="number" min="1" max="4" id="past_due_receivables__30_days" name="past_due_receivables__30_days" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="pefindo_borrower_6_months_ever_dpd">pefindo_borrower_6_months_ever_dpd</label>
+                            <input type="number" min="1" max="4" id="pefindo_borrower_6_months_ever_dpd" name="pefindo_borrower_6_months_ever_dpd" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="pefindo_borrower_12_months_recurring_dpd">pefindo_borrower_12_months_recurring_dpd</label>
+                            <input type="number" min="1" max="4" id="pefindo_borrower_12_months_recurring_dpd" name="pefindo_borrower_12_months_recurring_dpd" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue">pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue</label>
+                            <input type="number" min="1" max="4" id="pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" name="pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue">pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue</label>
+                            <input type="number" min="1" max="4" id="pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" name="pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" placeholder="1-4" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Operations & Projects</h3>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="company_length_of_business_months__lob">company_length_of_business_months__lob</label>
+                            <input type="number" min="1" max="4" id="company_length_of_business_months__lob" name="company_length_of_business_months__lob" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="management_experience_months__key_person">management_experience_months__key_person</label>
+                            <input type="number" min="1" max="4" id="management_experience_months__key_person" name="management_experience_months__key_person" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="repeat_order_with_proof_on_bs_or_legit_contract">repeat_order_with_proof_on_bs_or_legit_contract</label>
+                            <input type="number" min="1" max="4" id="repeat_order_with_proof_on_bs_or_legit_contract" name="repeat_order_with_proof_on_bs_or_legit_contract" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="type_of_payment">type_of_payment</label>
+                            <input type="number" min="1" max="4" id="type_of_payment" name="type_of_payment" placeholder="1-4" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="type_of_payor">type_of_payor</label>
+                            <input type="number" min="1" max="4" id="type_of_payor" name="type_of_payor" placeholder="1-4" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="random-sample-btn" class="secondary-btn-outline">
+                        Generate Sample
+                    </button>
+                    <button type="submit" id="predict-btn" class="primary-btn">
+                        <span class="btn-text">Analyze Risk</span>
+                        <span class="loader hidden"></span>
+                    </button>
+                </div>
+            </form>
+
+            <div id="result-container" class="result-container hidden">
+                <div class="divider"></div>
+                <div class="result-content">
+                    <div class="status-badge" id="status-badge">
+                        <span id="prediction-label">Low Risk</span>
+                    </div>
+                    <div class="probability-score">
+                        <div class="score-label">Default Probability</div>
+                        <div class="score-value" id="probability-value">0.0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="probability-fill"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

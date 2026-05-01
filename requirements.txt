@@ -1,0 +1,8 @@
+flask>=3.0
+flask-cors>=4.0
+numpy>=1.26
+scikit-learn>=1.4
+lightgbm>=4.3
+onnxruntime>=1.17
+appwrite>=5.0
+gunicorn>=21.2
