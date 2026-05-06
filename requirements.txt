@@ -6,3 +6,4 @@ lightgbm>=4.3
 onnxruntime>=1.17
 appwrite>=5.0
 gunicorn>=21.2
+shap>=0.44

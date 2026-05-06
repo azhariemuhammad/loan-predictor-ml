@@ -1,5 +1,6 @@
-// API Configuration - Uses relative paths as frontend is served by the backend
-const API_BASE = ''; 
+// API Configuration
+// If served from Flask (port 5002), use relative paths. Otherwise, point to the Flask server.
+const API_BASE = window.location.port === '5002' ? '' : 'http://localhost:5002';
 
 
 
@@ -30,7 +31,7 @@ function setLoading(loading) {
 
 function displayResult(data) {
     resultContainer.classList.remove('hidden');
-    
+
     // Animate probability
     const probPercent = (data.probability * 100).toFixed(1);
     scoreValue.innerText = `${probPercent}%`;
@@ -43,6 +44,31 @@ function displayResult(data) {
     } else {
         statusBadge.className = 'status-badge status-high';
         predictionLabel.innerText = 'High Risk';
+    }
+
+    // Handle Explanations
+    const expSection = document.getElementById('explanation-section');
+    const expList = document.getElementById('explanation-list');
+
+    if (data.explanations && data.explanations.length > 0) {
+        expList.innerHTML = '';
+        data.explanations.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'explanation-item';
+
+            const isNegative = item.value < 0;
+            const impactClass = isNegative ? 'impact-low' : 'impact-high';
+            const impactText = isNegative ? 'Decreases Risk' : 'Increases Risk';
+
+            div.innerHTML = `
+                <span class="feat-name">${item.feature.replaceAll('_', ' ')}</span>
+                <span class="feat-impact ${impactClass}">${impactText}</span>
+            `;
+            expList.appendChild(div);
+        });
+        expSection.classList.remove('hidden');
+    } else {
+        expSection.classList.add('hidden');
     }
 
     // Scroll to result

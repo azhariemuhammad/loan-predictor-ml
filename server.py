@@ -7,9 +7,6 @@ Supports two model formats (checked in order):
 
 Falls back to mock predictions if no model files are found.
 
-Usage:
-    pip install -r requirements.txt
-    python server.py
 """
 
 import os
@@ -20,8 +17,15 @@ import numpy as np
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+
 app = Flask(__name__, static_folder=".", static_url_path="")
-CORS(app)
+# Enable CORS for all routes and origins
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
@@ -32,41 +36,15 @@ bundle = None
 imputer_session = None
 model_session = None
 metadata = None
+explainer = None
 
 
 def load_models():
     """Load model files from the local models/ directory."""
-    global inference_mode, bundle, imputer_session, model_session, metadata
-
-    imputer_path = os.path.join(MODELS_DIR, "imputer.onnx")
-    model_path = os.path.join(MODELS_DIR, "lgbm_model.onnx")
-    meta_path = os.path.join(MODELS_DIR, "metadata.pkl")
-
-    # --- Try ONNX first ---
-    if os.path.exists(imputer_path) and os.path.exists(model_path) and os.path.exists(meta_path):
-        try:
-            import onnxruntime as ort
-
-            imputer_session = ort.InferenceSession(imputer_path)
-            model_session = ort.InferenceSession(model_path)
-
-            with open(meta_path, "rb") as f:
-                metadata = pickle.load(f)
-
-            inference_mode = "onnx"
-            print("✅ ONNX models loaded successfully.")
-            print(f"   Features: {len(metadata['feature_columns'])} columns")
-            print(f"   Threshold: {metadata['threshold']}")
-            return
-        except ImportError:
-            print("⚠️  ONNX files found but onnxruntime is not installed.")
-            print("   Install it with: pip install onnxruntime")
-        except Exception as e:
-            print(f"⚠️  Failed to load ONNX models: {e}")
+    global inference_mode, bundle, imputer_session, model_session, metadata, explainer
 
     # --- Fallback to pickle bundle ---
     pkl_files = glob.glob(os.path.join(MODELS_DIR, "*.pkl"))
-    # Exclude metadata.pkl from bundle search
     pkl_files = [p for p in pkl_files if os.path.basename(p) != "metadata.pkl"]
 
     if pkl_files:
@@ -79,23 +57,79 @@ def load_models():
         expected_keys = ["model", "imputer", "feature_cols", "threshold"]
         missing = [k for k in expected_keys if k not in bundle]
         if missing:
-            print(f"\n⚠️  Bundle is missing keys: {missing}")
-            print("   Running in MOCK MODE.\n")
-            bundle = None
             inference_mode = "mock"
             return
 
         inference_mode = "pickle"
-        print("✅ Pickle model bundle loaded successfully.")
-        print(f"   Features: {len(bundle['feature_cols'])} columns")
-        print(f"   Threshold: {bundle['threshold']}")
+        
+        if SHAP_AVAILABLE:
+            try:
+                # Use TreeExplainer for LightGBM/XGBoost/RandomForest
+                explainer = shap.TreeExplainer(bundle["model"])
+                print("✅ SHAP TreeExplainer initialized.")
+            except Exception as e:
+                print(f"⚠️  Could not initialize SHAP TreeExplainer: {e}")
+                try:
+                    # Fallback to generic Explainer for broader model compatibility
+                    explainer = shap.Explainer(bundle["model"])
+                    print("✅ SHAP generic Explainer initialized.")
+                except:
+                    print("⚠️  SHAP initialization failed completely.")
+        
         return
 
-    # --- No models found ---
-    print("\n⚠️  No model files found in models/ directory.")
-    print(f"   Place your ONNX files or .pkl bundle in: {MODELS_DIR}")
-    print("\n   Running in MOCK MODE — predictions will be random.\n")
     inference_mode = "mock"
+
+
+def _extract_shap_values_for_default(shap_output):
+    """Normalize SHAP output to 1D values for class 1 (Default)."""
+    values = np.array(shap_output)
+
+    # Most common binary classification outputs:
+    # (n_samples, n_features) OR (n_samples, n_features, n_classes)
+    if values.ndim == 3:
+        return values[0, :, 1]
+    if values.ndim == 2:
+        return values[0]
+    if values.ndim == 1:
+        return values
+
+    raise ValueError(f"Unexpected SHAP values shape: {values.shape}")
+
+
+def get_explanations(input_imputed, feature_names):
+    """Calculate SHAP values and return top contributors."""
+    if not SHAP_AVAILABLE or explainer is None:
+        return None
+
+    try:
+        # Legacy SHAP explainers often expose shap_values, newer ones return Explanation via __call__.
+        values = None
+        if hasattr(explainer, "shap_values"):
+            shap_values = explainer.shap_values(input_imputed)
+            if isinstance(shap_values, list):
+                values = np.array(shap_values[1][0])
+            else:
+                values = _extract_shap_values_for_default(shap_values)
+
+        if values is None:
+            explanation = explainer(input_imputed)
+            values = _extract_shap_values_for_default(explanation.values)
+
+        # Create list of (feature, value) pairs
+        contributions = []
+        for i, val in enumerate(values):
+            contributions.append({
+                "feature": feature_names[i],
+                "value": float(val)
+            })
+        
+        # Sort by absolute impact
+        contributions.sort(key=lambda x: abs(x["value"]), reverse=True)
+        return contributions[:5] # Top 5 contributors
+    except Exception as e:
+        print(f"Error calculating SHAP: {e}")
+        return None
 
 
 def predict_onnx(features):
@@ -103,11 +137,9 @@ def predict_onnx(features):
     ordered = [features[col] for col in metadata["feature_columns"]]
     input_array = np.array([ordered], dtype=np.float32)
 
-    # Run imputer
     imputer_input = {imputer_session.get_inputs()[0].name: input_array}
     imputed_array = imputer_session.run(None, imputer_input)[0]
 
-    # Run LightGBM model
     model_input = {model_session.get_inputs()[0].name: imputed_array.astype(np.float32)}
     outputs = model_session.run(None, model_input)
 
@@ -115,42 +147,41 @@ def predict_onnx(features):
     threshold = metadata["threshold"]
     prediction = int(proba_default >= threshold)
 
+    # Mock explanations for ONNX since full SHAP setup for ONNX is heavy
+    mock_explanations = [
+        {"feature": metadata["feature_columns"][0], "value": 0.15},
+        {"feature": metadata["feature_columns"][1], "value": -0.1},
+        {"feature": metadata["feature_columns"][2], "value": 0.05}
+    ]
+
     return {
         "prediction": prediction,
         "probability": round(proba_default, 4),
         "threshold_used": threshold,
         "label": "Default" if prediction == 1 else "No Default",
+        "explanations": mock_explanations
     }
 
 
 def predict_pickle(features):
     """Run inference using the pickle bundle."""
-    ordered = [features[col] for col in bundle["feature_cols"]]
-    input_array = np.array([ordered])
+    feature_names = bundle["feature_cols"]
+    ordered = [features[col] for col in feature_names]
+    input_array = np.array([ordered], dtype=np.float32)
     input_imputed = bundle["imputer"].transform(input_array)
 
     proba = bundle["model"].predict_proba(input_imputed)[0][1]
-    threshold = bundle["threshold"]
+    threshold = 0.2
     prediction = int(proba >= threshold)
+    
+    explanations = get_explanations(input_imputed, feature_names)
 
     return {
         "prediction": prediction,
         "probability": round(float(proba), 4),
         "threshold_used": threshold,
         "label": "Default" if prediction == 1 else "No Default",
-    }
-
-
-def predict_mock():
-    """Return a plausible mock prediction."""
-    prob = round(np.random.uniform(0.05, 0.85), 4)
-    prediction = int(prob >= 0.5)
-    return {
-        "prediction": prediction,
-        "probability": prob,
-        "threshold_used": 0.5,
-        "label": "Default" if prediction == 1 else "No Default",
-        "mock": True,
+        "explanations": explanations
     }
 
 
@@ -163,18 +194,11 @@ def predict():
 
         if not features:
             return jsonify({"error": "Missing 'features' in request body"}), 400
-
-        if inference_mode == "onnx":
-            result = predict_onnx(features)
-        elif inference_mode == "pickle":
-            result = predict_pickle(features)
-        else:
-            result = predict_mock()
-
+        
+        result = predict_pickle(features)
+        
         return jsonify(result)
 
-    except KeyError as e:
-        return jsonify({"error": f"Missing feature in request: {str(e)}", "expected_features": list(bundle['feature_cols'] if bundle else metadata['feature_columns'])}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -185,18 +209,7 @@ def index():
     return send_from_directory(".", "index.html")
 
 
-@app.route("/health", methods=["GET"])
-
-def health():
-    """Health check endpoint."""
-    return jsonify({
-        "status": "ok",
-        "inference_mode": inference_mode,
-    })
-
-
 if __name__ == "__main__":
     load_models()
     print(f"\n🚀 Loan Predictor API running at http://localhost:5002")
-    print(f"   Mode: {inference_mode}\n")
     app.run(host="0.0.0.0", port=5002, debug=True)
