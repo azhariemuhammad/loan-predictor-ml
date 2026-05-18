@@ -11,101 +11,333 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main class="app-container">
-        <div class="card">
-            <div class="card-header">
-                <h1 class="card-title">LoanInsight AI</h1>
-                <p class="card-description">Enter business financials and credit history to predict loan default probability.</p>
-            </div>
-            <div class="card-content">
-                <form id="prediction-form">
+    <main class="app-container layout-two-columns">
+        <nav class="mobile-tabs" id="mobile-tabs" aria-label="Panel switcher">
+            <button type="button" class="mobile-tab active" data-tab="form" id="tab-form">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Input Form
+            </button>
+            <button type="button" class="mobile-tab" data-tab="result" id="tab-result">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Analysis Result
+            </button>
+        </nav>
+        <div class="left-column">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title">LoanInsight AI</h1>
+                    <p class="card-description">Enter business financials and credit history to predict loan default probability. Values are automatically scored based on internal credit scorecard.</p>
+                </div>
+                <div class="card-content">
+                    <form id="prediction-form">
+
+                    <!-- ═══════════════════════════════════════════════ -->
+                    <!-- Section A: Borrower's Profile (30%)            -->
+                    <!-- ═══════════════════════════════════════════════ -->
                     <div class="form-section">
-                        <h3 class="form-section-title">Business Financials</h3>
+                        <div class="section-header">
+                            <h3 class="form-section-title">A. Borrower's Profile</h3>
+                            <span class="section-weight">Weight: 30%</span>
+                        </div>
                         <div class="form-grid">
                             <div class="input-group">
-                                <label for="ebitda_margin">EBITDA Margin</label>
-                                <input type="number" min="0" max="4" id="ebitda_margin" name="ebitda_margin" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_company_lob">Company Length of Business</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: &gt;60 = 4, 49-60 = 3, 37-48 = 2, 24-36 = 1, 12-23 = 0<br><em>Source: Deed</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="1" id="input_company_lob" placeholder="e.g. 48" required>
+                                    <span class="input-unit">months</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="revenue_size">Revenue Size</label>
-                                <input type="number" min="0" max="4" id="revenue_size" name="revenue_size" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_management_exp">Management Experience (Key Person)</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: &gt;60 = 4, 49-60 = 3, 37-48 = 2, 24-36 = 1, 12-23 = 0<br><em>Source: Interview / Form</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="1" id="input_management_exp" placeholder="e.g. 60" required>
+                                    <span class="input-unit">months</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="existing_dscr">Existing DSCR</label>
-                                <input type="number" min="0" max="4" id="existing_dscr" name="existing_dscr" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_pefindo_b6">Pefindo Borrower: 6mo Ever DPD</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Current = 4, DPD 1-5 = 3, DPD 6-10 = 2, DPD 10-14 = 1, DPD 15-30 = 0<br><em>Source: Pefindo</em></span>
+                                    </span>
+                                </div>
+                                <select id="input_pefindo_b6" required>
+                                    <option value="" disabled selected>Select status</option>
+                                    <option value="4">Current</option>
+                                    <option value="3">Ever DPD 1-5</option>
+                                    <option value="2">Ever DPD 6-10</option>
+                                    <option value="1">Ever DPD 10-14</option>
+                                    <option value="0">Ever DPD 15-30</option>
+                                </select>
                             </div>
                             <div class="input-group">
-                                <label for="yoy_revenue_growth">YoY Revenue Growth</label>
-                                <input type="number" min="0" max="4" id="yoy_revenue_growth" name="yoy_revenue_growth" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_pefindo_b12">Pefindo Borrower: 12mo Recurring DPD</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Always Current = 4, DPD&lt;5 1x = 3, DPD&lt;5 2x = 2, DPD&lt;5 3x = 1, DPD 5+ = 0<br><em>Source: Pefindo</em></span>
+                                    </span>
+                                </div>
+                                <select id="input_pefindo_b12" required>
+                                    <option value="" disabled selected>Select status</option>
+                                    <option value="4">Always Current 12 Months</option>
+                                    <option value="3">Ever DPD &lt; 5 (1x)</option>
+                                    <option value="2">Ever DPD &lt; 5 (2x)</option>
+                                    <option value="1">Ever DPD &lt; 5 (3x)</option>
+                                    <option value="0">Ever DPD 5+</option>
+                                </select>
                             </div>
                             <div class="input-group">
-                                <label for="total_debt_to_ebitda">Total Debt to EBITDA</label>
-                                <input type="number" min="0" max="4" id="total_debt_to_ebitda" name="total_debt_to_ebitda" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_pefindo_m6">Pefindo Mgmt: 6mo Ever DPD</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Excl. CC &amp; Consumer ≤50M<br>Current = 4, DPD 1-5 = 3, DPD 6-10 = 2, DPD 10-14 = 1, DPD 15-30 = 0<br><em>Source: Pefindo</em></span>
+                                    </span>
+                                </div>
+                                <select id="input_pefindo_m6" required>
+                                    <option value="" disabled selected>Select status</option>
+                                    <option value="4">Current</option>
+                                    <option value="3">Ever DPD 1-5</option>
+                                    <option value="2">Ever DPD 6-10</option>
+                                    <option value="1">Ever DPD 10-14</option>
+                                    <option value="0">Ever DPD 15-30</option>
+                                </select>
                             </div>
                             <div class="input-group">
-                                <label for="trade_cycle">Trade Cycle</label>
-                                <input type="number" min="0" max="4" id="trade_cycle" name="trade_cycle" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_pefindo_m12">Pefindo Mgmt: 12mo Recurring DPD</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Excl. CC &amp; Consumer ≤50M<br>Always Current = 4, DPD&lt;5 1x = 3, DPD&lt;5 2x = 2, DPD&lt;5 3x = 1, DPD 5+ = 0<br><em>Source: Pefindo</em></span>
+                                    </span>
+                                </div>
+                                <select id="input_pefindo_m12" required>
+                                    <option value="" disabled selected>Select status</option>
+                                    <option value="4">Always Current 12 Months</option>
+                                    <option value="3">Ever DPD &lt; 5 (1x)</option>
+                                    <option value="2">Ever DPD &lt; 5 (2x)</option>
+                                    <option value="1">Ever DPD &lt; 5 (3x)</option>
+                                    <option value="0">Ever DPD 5+</option>
+                                </select>
                             </div>
                         </div>
                     </div>
 
                     <div class="separator"></div>
 
+                    <!-- ═══════════════════════════════════════════════ -->
+                    <!-- Section B: Borrower's Financial (20%)          -->
+                    <!-- ═══════════════════════════════════════════════ -->
                     <div class="form-section">
-                        <h3 class="form-section-title">Risk & Credit History</h3>
+                        <div class="section-header">
+                            <h3 class="form-section-title">B. Borrower's Financial</h3>
+                            <span class="section-weight">Weight: 20%</span>
+                        </div>
                         <div class="form-grid">
                             <div class="input-group">
-                                <label for="average_credit_bank_statement__sales">Avg Credit / Sales</label>
-                                <input type="number" min="0" max="4" id="average_credit_bank_statement__sales" name="average_credit_bank_statement__sales" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_revenue_size">Revenue Size</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: &gt;8B = 4, &gt;6-8B = 3, &gt;4-6B = 2, &gt;2-4B = 1, 0-2B = 0<br><em>Source: FS / Form, Interview</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="0.1" id="input_revenue_size" placeholder="e.g. 8" required>
+                                    <span class="input-unit">Billion IDR</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="past_due_receivables__30_days">Past Due Receivables (30d)</label>
-                                <input type="number" min="0" max="4" id="past_due_receivables__30_days" name="past_due_receivables__30_days" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_past_due_recv">Past Due Receivables &gt;30 days</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: 0-1% = 4, &gt;1-2% = 3, &gt;2-3% = 2, &gt;3-5% = 1, &gt;5% = 0<br><em>Source: Interview / Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="0.1" id="input_past_due_recv" placeholder="e.g. 1.5" required>
+                                    <span class="input-unit">%</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="pefindo_borrower_6_months_ever_dpd">Pefindo 6mo Ever DPD</label>
-                                <input type="number" min="0" max="4" id="pefindo_borrower_6_months_ever_dpd" name="pefindo_borrower_6_months_ever_dpd" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_ebitda_margin">EBITDA Margin</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: &gt;20% = 4, &gt;16-20% = 3, &gt;10-15% = 2, &gt;0-10% = 1, ≤0% = 0<br><em>Source: Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" step="0.1" id="input_ebitda_margin" placeholder="e.g. 18" required>
+                                    <span class="input-unit">%</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="pefindo_borrower_12_months_recurring_dpd">Pefindo 12mo Recurring DPD</label>
-                                <input type="number" min="0" max="4" id="pefindo_borrower_12_months_recurring_dpd" name="pefindo_borrower_12_months_recurring_dpd" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_yoy_growth">Y-o-Y Revenue Growth</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: &gt;20% = 4, &gt;15-20% = 3, &gt;10-15% = 2, &gt;5-10% = 1, ≤5% = 0<br><em>Source: Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" step="0.1" id="input_yoy_growth" placeholder="e.g. 12" required>
+                                    <span class="input-unit">%</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" title="Exclude CC/Consumer up to 50M">Mgmt 12mo Recurring DPD</label>
-                                <input type="number" min="0" max="4" id="pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" name="pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_debt_to_ebitda">Total Debt to EBITDA</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: ≤0.5x = 4, &gt;0.5-1x = 3, &gt;1-2x = 2, &gt;2-3x = 1, &gt;3x = 0<br><em>Source: Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="0.1" id="input_debt_to_ebitda" placeholder="e.g. 1.2" required>
+                                    <span class="input-unit">x</span>
+                                </div>
                             </div>
                             <div class="input-group">
-                                <label for="pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" title="Exclude CC/Consumer up to 50M">Mgmt 6mo Ever DPD</label>
-                                <input type="number" min="0" max="4" id="pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" name="pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_dscr">Existing DSCR</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: &gt;1.6x = 4, &gt;1.4-1.6x = 3, &gt;1.2-1.4x = 2, &gt;1-1.2x = 1, ≤1x = 0<br><em>Source: Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="0.01" id="input_dscr" placeholder="e.g. 1.5" required>
+                                    <span class="input-unit">x</span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <div class="label-row">
+                                    <label for="input_avg_credit_sales">Avg Credit Bank Statement / Sales</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: 80-150% = 4, 71-80% = 3, 66-70% = 2, 61-65% = 1, ≤60% or &gt;150% = 0<br><em>Source: Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="0.1" id="input_avg_credit_sales" placeholder="e.g. 85" required>
+                                    <span class="input-unit">%</span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <div class="label-row">
+                                    <label for="input_trade_cycle">Trade Cycle</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: 0-90 = 4, 91-120 = 3, 121-150 = 2, 151-180 = 1, &gt;180 = 0<br><em>Source: Calculation</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="1" id="input_trade_cycle" placeholder="e.g. 90" required>
+                                    <span class="input-unit">days</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="separator"></div>
 
+                    <!-- ═══════════════════════════════════════════════ -->
+                    <!-- Section C: Payor's Profile (30%)               -->
+                    <!-- ═══════════════════════════════════════════════ -->
                     <div class="form-section">
-                        <h3 class="form-section-title">Operations & Projects</h3>
+                        <div class="section-header">
+                            <h3 class="form-section-title">C. Payor's Profile</h3>
+                            <span class="section-weight">Weight: 30%</span>
+                        </div>
                         <div class="form-grid">
                             <div class="input-group">
-                                <label for="company_length_of_business_months__lob">Company LOB (Months)</label>
-                                <input type="number" min="0" max="4" id="company_length_of_business_months__lob" name="company_length_of_business_months__lob" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_type_of_payor">Type of Payor</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Weight: 18%<br>Public/MNC = 4, Well-known Private = 3, SOE = 2, Private = 1, Unknown = 0<br><em>Source: Desktop Checking</em></span>
+                                    </span>
+                                </div>
+                                <select id="input_type_of_payor" required>
+                                    <option value="" disabled selected>Select payor type</option>
+                                    <option value="4">Public Listed / Multinational Company</option>
+                                    <option value="3">Well-known Private Company (Nation-Wide)</option>
+                                    <option value="2">State Owned Enterprise (SOE)</option>
+                                    <option value="1">Private Company</option>
+                                    <option value="0">Unknown / Un-Resourceable</option>
+                                </select>
                             </div>
                             <div class="input-group">
-                                <label for="management_experience_months__key_person">Mgmt Experience (Months)</label>
-                                <input type="number" min="0" max="4" id="management_experience_months__key_person" name="management_experience_months__key_person" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_type_of_payment">Type of Payment</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Weight: 12%<br>Proper &amp; exact = 4, Proper uneven = 3, Bulk = 2, Partial = 1, Not found = 0<br><em>Source: Bank Statement</em></span>
+                                    </span>
+                                </div>
+                                <select id="input_type_of_payment" required>
+                                    <option value="" disabled selected>Select payment type</option>
+                                    <option value="4">Proper Payment & No Amount Difference</option>
+                                    <option value="3">Proper Payment with Uneven Amount</option>
+                                    <option value="2">Bulk Payment</option>
+                                    <option value="1">Partial Payment</option>
+                                    <option value="0">Not Found</option>
+                                </select>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="separator"></div>
+
+                    <!-- ═══════════════════════════════════════════════ -->
+                    <!-- Section D: Borrower Relationship (20%)         -->
+                    <!-- ═══════════════════════════════════════════════ -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3 class="form-section-title">D. Borrower Relationship with Payor</h3>
+                            <span class="section-weight">Weight: 20%</span>
+                        </div>
+                        <div class="form-grid">
                             <div class="input-group">
-                                <label for="repeat_order_with_proof_on_bs_or_legit_contract">Repeat Order Proof</label>
-                                <input type="number" min="0" max="4" id="repeat_order_with_proof_on_bs_or_legit_contract" name="repeat_order_with_proof_on_bs_or_legit_contract" placeholder="0-4" required>
+                                <div class="label-row">
+                                    <label for="input_repeat_order">Repeat Order (with proof on BS or legit contract)</label>
+                                    <span class="info-trigger" tabindex="0">
+                                        <svg class="info-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <span class="info-popover">Score: ≥10 = 4, 8-9 = 3, 7-8 = 2, 5-6 = 1, 3-4 = 0<br><em>Source: Interview</em></span>
+                                    </span>
+                                </div>
+                                <div class="input-with-unit">
+                                    <input type="number" min="0" step="1" id="input_repeat_order" placeholder="e.g. 10" required>
+                                    <span class="input-unit">times</span>
+                                </div>
                             </div>
-                            <div class="input-group">
-                                <label for="type_of_payment">Type of Payment</label>
-                                <input type="number" min="0" max="4" id="type_of_payment" name="type_of_payment" placeholder="0-4" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="type_of_payor">Type of Payor</label>
-                                <input type="number" min="0" max="4" id="type_of_payor" name="type_of_payor" placeholder="0-4" required>
-                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Score Summary Panel -->
+                    <div id="score-summary" class="score-summary hidden">
+                        <div class="score-summary-header">
+                            <span class="score-summary-title">Score Preview</span>
+                            <span class="score-summary-total" id="total-weighted-score">—</span>
+                        </div>
+                        <div class="score-summary-grid" id="score-grid">
+                            <!-- Populated by JS -->
                         </div>
                     </div>
 
@@ -119,25 +351,40 @@
                         </button>
                     </div>
                 </form>
+                </div>
+            </div>
+        </div>
 
-                <div id="result-container" class="result-container hidden">
-                    <div class="separator"></div>
-                    <div class="result-content">
-                        <div class="status-badge" id="status-badge">
-                            <span id="prediction-label">Low Risk</span>
-                        </div>
-                        <div class="probability-score">
-                            <div class="score-label">Default Probability</div>
-                            <div class="score-value" id="probability-value">0.0%</div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="probability-fill"></div>
+        <div class="right-column">
+            <div class="card sticky-panel">
+                <div class="card-header">
+                    <h2 class="card-title" style="font-size: 1.25rem;">Analysis Result</h2>
+                    <p class="card-description">Risk prediction and key factors.</p>
+                </div>
+                <div class="card-content">
+                    <div id="empty-state" class="empty-state">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--muted-foreground)); margin-bottom: 1rem;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+                        <p>Fill out the form and click "Analyze Risk" to see the prediction results here.</p>
+                    </div>
+                    
+                    <div id="result-container" class="result-container hidden">
+                        <div class="result-content">
+                            <div class="status-badge" id="status-badge">
+                                <span id="prediction-label">Low Risk</span>
                             </div>
-                        </div>
-                        
-                        <div id="explanation-section" class="explanation-section hidden">
-                            <div class="explanation-title">Key Risk Factors</div>
-                            <div id="explanation-list" class="explanation-list">
-                                <!-- Injected by app.js -->
+                            <div class="probability-score">
+                                <div class="score-label">Default Probability</div>
+                                <div class="score-value" id="probability-value">0.0%</div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="probability-fill"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="explanation-section" class="explanation-section hidden">
+                                <div class="explanation-title">Key Risk Factors</div>
+                                <div id="explanation-list" class="explanation-list">
+                                    <!-- Injected by app.js -->
+                                </div>
                             </div>
                         </div>
                     </div>

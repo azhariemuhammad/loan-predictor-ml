@@ -2,9 +2,220 @@
 // If served from Flask (port 5002), use relative paths. Otherwise, point to the Flask server.
 const API_BASE = window.location.port === '5002' ? '' : 'http://localhost:5002';
 
+// ═══════════════════════════════════════════════════════════════════
+//  SCORING ENGINE — Converts real-world inputs to 0-4 scores
+//  based on the internal credit scorecard
+// ═══════════════════════════════════════════════════════════════════
+
+const SCORING_RULES = {
+    // A. Borrower's Profile
+    input_company_lob: {
+        featureKey: 'company_length_of_business_months__lob',
+        weight: 0.06,
+        score(months) {
+            if (months > 60) return 4;
+            if (months >= 49) return 3;
+            if (months >= 37) return 2;
+            if (months >= 24) return 1;
+            return 0;
+        },
+        label: 'Company LOB'
+    },
+    input_management_exp: {
+        featureKey: 'management_experience_months__key_person',
+        weight: 0.06,
+        score(months) {
+            if (months > 60) return 4;
+            if (months >= 49) return 3;
+            if (months >= 37) return 2;
+            if (months >= 24) return 1;
+            return 0;
+        },
+        label: 'Mgmt Experience'
+    },
+    input_pefindo_b6: {
+        featureKey: 'pefindo_borrower_6_months_ever_dpd',
+        weight: 0.05,
+        score: null, // Direct select value
+        label: 'Pefindo B. 6mo DPD'
+    },
+    input_pefindo_b12: {
+        featureKey: 'pefindo_borrower_12_months_recurring_dpd',
+        weight: 0.05,
+        score: null,
+        label: 'Pefindo B. 12mo DPD'
+    },
+    input_pefindo_m6: {
+        featureKey: 'pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue',
+        weight: 0.04,
+        score: null,
+        label: 'Pefindo M. 6mo DPD'
+    },
+    input_pefindo_m12: {
+        featureKey: 'pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue',
+        weight: 0.04,
+        score: null,
+        label: 'Pefindo M. 12mo DPD'
+    },
+
+    // B. Borrower's Financial
+    input_revenue_size: {
+        featureKey: 'revenue_size',
+        weight: 0.02,
+        score(billions) {
+            if (billions > 8) return 4;
+            if (billions > 6) return 3;
+            if (billions > 4) return 2;
+            if (billions > 2) return 1;
+            return 0;
+        },
+        label: 'Revenue Size'
+    },
+    input_past_due_recv: {
+        featureKey: 'past_due_receivables__30_days',
+        weight: 0.03,
+        score(pct) {
+            if (pct <= 1) return 4;
+            if (pct <= 2) return 3;
+            if (pct <= 3) return 2;
+            if (pct <= 5) return 1;
+            return 0;
+        },
+        label: 'Past Due Recv.'
+    },
+    input_ebitda_margin: {
+        featureKey: 'ebitda_margin',
+        weight: 0.03,
+        score(pct) {
+            if (pct > 20) return 4;
+            if (pct > 16) return 3;  // >16-20%
+            if (pct > 10) return 2;  // >10-15%
+            if (pct > 0) return 1;   // >0-10%
+            return 0;                 // 0% or Loss
+        },
+        label: 'EBITDA Margin'
+    },
+    input_yoy_growth: {
+        featureKey: 'yoy_revenue_growth',
+        weight: 0.02,
+        score(pct) {
+            if (pct > 20) return 4;
+            if (pct > 15) return 3;
+            if (pct > 10) return 2;
+            if (pct > 5) return 1;
+            return 0;
+        },
+        label: 'YoY Growth'
+    },
+    input_debt_to_ebitda: {
+        featureKey: 'total_debt_to_ebitda',
+        weight: 0.02,
+        score(x) {
+            if (x <= 0.5) return 4;
+            if (x <= 1) return 3;
+            if (x <= 2) return 2;
+            if (x <= 3) return 1;
+            return 0;
+        },
+        label: 'Debt/EBITDA'
+    },
+    input_dscr: {
+        featureKey: 'existing_dscr',
+        weight: 0.03,
+        score(x) {
+            if (x > 1.6) return 4;
+            if (x > 1.4) return 3;
+            if (x > 1.2) return 2;
+            if (x > 1.0) return 1;
+            return 0;
+        },
+        label: 'Existing DSCR'
+    },
+    input_avg_credit_sales: {
+        featureKey: 'average_credit_bank_statement__sales',
+        weight: 0.03,
+        score(pct) {
+            if (pct >= 80 && pct <= 150) return 4;
+            if (pct >= 71 && pct < 80) return 3;
+            if (pct >= 66 && pct < 71) return 2;
+            if (pct >= 61 && pct < 66) return 1;
+            return 0;  // ≤60% or >150%
+        },
+        label: 'Avg Credit/Sales'
+    },
+    input_trade_cycle: {
+        featureKey: 'trade_cycle',
+        weight: 0.02,
+        score(days) {
+            if (days <= 90) return 4;
+            if (days <= 120) return 3;
+            if (days <= 150) return 2;
+            if (days <= 180) return 1;
+            return 0;
+        },
+        label: 'Trade Cycle'
+    },
+
+    // C. Payor's Profile
+    input_type_of_payor: {
+        featureKey: 'type_of_payor',
+        weight: 0.18,
+        score: null,
+        label: 'Type of Payor'
+    },
+    input_type_of_payment: {
+        featureKey: 'type_of_payment',
+        weight: 0.12,
+        score: null,
+        label: 'Type of Payment'
+    },
+
+    // D. Borrower Relationship
+    input_repeat_order: {
+        featureKey: 'repeat_order_with_proof_on_bs_or_legit_contract',
+        weight: 0.20,
+        score(times) {
+            if (times >= 10) return 4;
+            if (times >= 8) return 3;
+            if (times >= 7) return 2;
+            if (times >= 5) return 1;
+            return 0;
+        },
+        label: 'Repeat Order'
+    }
+};
+
+/**
+ * Convert all form inputs to scored features for the model.
+ * Returns { features: { featureKey: score }, scores: [{ label, score, weight }] }
+ */
+function convertToScores() {
+    const features = {};
+    const scores = [];
+
+    for (const [inputId, rule] of Object.entries(SCORING_RULES)) {
+        const el = document.getElementById(inputId);
+        const rawValue = parseFloat(el.value);
+
+        if (isNaN(rawValue)) {
+            return null; // form validation will handle this
+        }
+
+        // If the rule has a score function, use it. Otherwise the select value IS the score.
+        const score = rule.score ? rule.score(rawValue) : rawValue;
+
+        features[rule.featureKey] = score;
+        scores.push({ label: rule.label, score, weight: rule.weight });
+    }
+
+    return { features, scores };
+}
 
 
-// DOM Elements
+// ═══════════════════════════════════════════════════════════════════
+//  DOM Elements
+// ═══════════════════════════════════════════════════════════════════
+
 const form = document.getElementById('prediction-form');
 const predictBtn = document.getElementById('predict-btn');
 const btnLoader = predictBtn.querySelector('.loader');
@@ -15,8 +226,60 @@ const progressFill = document.getElementById('probability-fill');
 const statusBadge = document.getElementById('status-badge');
 const predictionLabel = document.getElementById('prediction-label');
 const randomSampleBtn = document.getElementById('random-sample-btn');
+const scoreSummary = document.getElementById('score-summary');
+const scoreGrid = document.getElementById('score-grid');
+const totalWeightedScore = document.getElementById('total-weighted-score');
 
-// UI Helpers
+
+// ═══════════════════════════════════════════════════════════════════
+//  Score Preview — Updates live as user fills the form
+// ═══════════════════════════════════════════════════════════════════
+
+function updateScorePreview() {
+    const result = convertToScores();
+    if (!result) {
+        scoreSummary.classList.add('hidden');
+        return;
+    }
+
+    const { scores } = result;
+    let totalWeighted = 0;
+    let maxWeighted = 0;
+
+    scoreGrid.innerHTML = '';
+    scores.forEach(({ label, score, weight }) => {
+        totalWeighted += score * weight;
+        maxWeighted += 4 * weight;
+
+        const item = document.createElement('div');
+        item.className = 'score-item';
+
+        const scoreClass = score >= 3 ? 'score-good' : score >= 2 ? 'score-mid' : 'score-bad';
+
+        item.innerHTML = `
+            <span class="score-item-label">${label}</span>
+            <span class="score-item-value ${scoreClass}">${score}/4</span>
+        `;
+        scoreGrid.appendChild(item);
+    });
+
+    const pct = ((totalWeighted / maxWeighted) * 100).toFixed(1);
+    totalWeightedScore.textContent = `${pct}%`;
+
+    scoreSummary.classList.remove('hidden');
+}
+
+// Attach live preview to all form inputs
+document.querySelectorAll('#prediction-form input, #prediction-form select').forEach(el => {
+    el.addEventListener('input', updateScorePreview);
+    el.addEventListener('change', updateScorePreview);
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  UI Helpers
+// ═══════════════════════════════════════════════════════════════════
+
 function setLoading(loading) {
     if (loading) {
         predictBtn.disabled = true;
@@ -30,6 +293,9 @@ function setLoading(loading) {
 }
 
 function displayResult(data) {
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) emptyState.classList.add('hidden');
+    
     resultContainer.classList.remove('hidden');
 
     // Animate probability
@@ -61,7 +327,7 @@ function displayResult(data) {
             const impactText = isNegative ? 'Decreases Risk' : 'Increases Risk';
 
             div.innerHTML = `
-                <span class="feat-name">${item.feature.replaceAll('_', ' ')}</span>
+                <span class="feat-name">${item.feature.replaceAll('_', ' ').replaceAll(/\b\w/g, c => c.toUpperCase())}</span>
                 <span class="feat-impact ${impactClass}">${impactText}</span>
             `;
             expList.appendChild(div);
@@ -75,29 +341,28 @@ function displayResult(data) {
     resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Form Submission
+
+// ═══════════════════════════════════════════════════════════════════
+//  Form Submission — Convert to scores, then POST to /predict
+// ═══════════════════════════════════════════════════════════════════
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const result = convertToScores();
+    if (!result) {
+        alert('Please fill in all fields.');
+        return;
+    }
+
     setLoading(true);
     resultContainer.classList.add('hidden');
-
-    const formData = new FormData(form);
-    const rawFeatures = {};
-    formData.forEach((value, key) => {
-        rawFeatures[key] = parseFloat(value);
-    });
-
-    const features = {};
-    formData.forEach((value, key) => {
-        features[key] = parseFloat(value);
-    });
 
     try {
         const response = await fetch(`${API_BASE}/predict`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ features }),
+            body: JSON.stringify({ features: result.features }),
         });
 
         const data = await response.json();
@@ -107,6 +372,7 @@ form.addEventListener('submit', async (e) => {
         }
 
         displayResult(data);
+        switchToResultTabOnMobile();
     } catch (error) {
         console.error('Inference Error:', error);
         alert(`Error: ${error.message || 'Failed to connect to local API. Is server.py running?'}`);
@@ -115,43 +381,71 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-// Random Sample Generator
+
+// ═══════════════════════════════════════════════════════════════════
+//  Random Sample Generator — produces realistic values
+// ═══════════════════════════════════════════════════════════════════
+
 function fillRandomSample() {
     const random = (min, max, decimals = 0) => {
         const val = Math.random() * (max - min) + min;
         return decimals === 0 ? Math.floor(val) : parseFloat(val.toFixed(decimals));
     };
 
-    // Decide if we want to generate a 'Healthy' or 'Risky' profile
-    const isRisky = Math.random() > 0.5;
-    const getVal = () => isRisky ? random(3, 5) : random(1, 3);
+    const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-    const sampleData = {
-        average_credit_bank_statement__sales: getVal(),
-        company_length_of_business_months__lob: getVal(),
-        ebitda_margin: getVal(),
-        existing_dscr: getVal(),
-        management_experience_months__key_person: getVal(),
-        past_due_receivables__30_days: getVal(),
-        pefindo_borrower_12_months_recurring_dpd: getVal(),
-        pefindo_borrower_6_months_ever_dpd: getVal(),
-        pefindo_management__12_months_recurring_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue: getVal(),
-        pefindo_management__6_months_ever_dpd__exclude_cc_and_consumer_loan_up_to_50_mio_overdue: getVal(),
-        repeat_order_with_proof_on_bs_or_legit_contract: getVal(),
-        revenue_size: getVal(),
-        total_debt_to_ebitda: getVal(),
-        trade_cycle: getVal(),
-        type_of_payment: getVal(),
-        type_of_payor: getVal(),
-        yoy_revenue_growth: getVal()
+    // Decide if we want a "healthy" or "risky" profile
+    const isHealthy = Math.random() > 0.4;
+
+    const samples = isHealthy ? {
+        // Healthy profile — real-world values
+        input_company_lob: random(40, 120),
+        input_management_exp: random(48, 120),
+        input_pefindo_b6: pickRandom(['4', '3']),
+        input_pefindo_b12: pickRandom(['4', '3']),
+        input_pefindo_m6: pickRandom(['4', '3']),
+        input_pefindo_m12: pickRandom(['4', '3']),
+        input_revenue_size: random(5, 15, 1),
+        input_past_due_recv: random(0, 2, 1),
+        input_ebitda_margin: random(15, 30, 1),
+        input_yoy_growth: random(12, 35, 1),
+        input_debt_to_ebitda: random(0.2, 1.5, 1),
+        input_dscr: random(1.3, 2.5, 2),
+        input_avg_credit_sales: random(75, 140, 1),
+        input_trade_cycle: random(30, 120),
+        input_type_of_payor: pickRandom(['4', '3']),
+        input_type_of_payment: pickRandom(['4', '3']),
+        input_repeat_order: random(7, 15),
+    } : {
+        // Risky profile — real-world values
+        input_company_lob: random(12, 36),
+        input_management_exp: random(12, 36),
+        input_pefindo_b6: pickRandom(['1', '0']),
+        input_pefindo_b12: pickRandom(['1', '0']),
+        input_pefindo_m6: pickRandom(['1', '0']),
+        input_pefindo_m12: pickRandom(['1', '0']),
+        input_revenue_size: random(0.5, 3, 1),
+        input_past_due_recv: random(3, 10, 1),
+        input_ebitda_margin: random(-5, 10, 1),
+        input_yoy_growth: random(-10, 8, 1),
+        input_debt_to_ebitda: random(2, 5, 1),
+        input_dscr: random(0.5, 1.1, 2),
+        input_avg_credit_sales: random(30, 60, 1),
+        input_trade_cycle: random(150, 250),
+        input_type_of_payor: pickRandom(['1', '0']),
+        input_type_of_payment: pickRandom(['1', '0']),
+        input_repeat_order: random(3, 6),
     };
 
-    Object.keys(sampleData).forEach(key => {
-        const input = document.getElementById(key);
-        if (input) {
-            input.value = sampleData[key];
+    Object.entries(samples).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = value;
         }
     });
+
+    // Trigger score preview update
+    updateScorePreview();
 
     // Pulse effect on inputs
     const inputs = form.querySelectorAll('input, select');
@@ -164,3 +458,45 @@ function fillRandomSample() {
 }
 
 randomSampleBtn.addEventListener('click', fillRandomSample);
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  Mobile Tab Switching
+// ═══════════════════════════════════════════════════════════════════
+
+const mobileTabContainer = document.getElementById('mobile-tabs');
+const appContainer = document.querySelector('.layout-two-columns');
+
+if (mobileTabContainer && appContainer) {
+    const tabs = mobileTabContainer.querySelectorAll('.mobile-tab');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update active tab button
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Set data attribute for CSS-based show/hide
+            const activeTab = tab.dataset.tab;
+            if (activeTab === 'result') {
+                appContainer.setAttribute('data-active-tab', 'result');
+            } else {
+                appContainer.removeAttribute('data-active-tab');
+            }
+        });
+    });
+}
+
+/**
+ * Auto-switch to the Result tab on mobile after a successful prediction.
+ * Uses matchMedia so it only triggers when the tab bar is actually visible.
+ */
+function switchToResultTabOnMobile() {
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+    if (!isMobile) return;
+
+    const resultTab = document.getElementById('tab-result');
+    if (resultTab) {
+        resultTab.click();
+    }
+}

@@ -1,12 +1,8 @@
 """
 Local Flask server for loan prediction inference.
 
-Supports two model formats (checked in order):
-  1. ONNX  — imputer.onnx + lgbm_model.onnx + metadata.pkl in models/
-  2. Pickle — single .pkl bundle in models/
-
-Falls back to mock predictions if no model files are found.
-
+Loads a pickle bundle (model, imputer, feature_cols, threshold) from models/
+and exposes a /predict endpoint for real-time inference with SHAP explanations.
 """
 
 import os
@@ -31,54 +27,77 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 
 # Global model state
-inference_mode = None  # "onnx" | "pickle" | "mock"
 bundle = None
-imputer_session = None
-model_session = None
-metadata = None
 explainer = None
 
 
 def load_models():
-    """Load model files from the local models/ directory."""
-    global inference_mode, bundle, imputer_session, model_session, metadata, explainer
+    """Load the pickle bundle and initialise the SHAP explainer."""
+    global bundle, explainer
 
-    # --- Fallback to pickle bundle ---
     pkl_files = glob.glob(os.path.join(MODELS_DIR, "*.pkl"))
     pkl_files = [p for p in pkl_files if os.path.basename(p) != "metadata.pkl"]
 
-    if pkl_files:
-        bundle_path = pkl_files[0]
-        print(f"   Loading pickle bundle: {bundle_path}")
+    if not pkl_files:
+        raise FileNotFoundError(
+            f"No .pkl model bundle found in {MODELS_DIR}. "
+            "Please place a valid model bundle in the models/ directory."
+        )
 
-        with open(bundle_path, "rb") as f:
-            bundle = pickle.load(f)
+    bundle_path = pkl_files[0]
+    print(f"   Loading pickle bundle: {bundle_path}")
 
-        expected_keys = ["model", "imputer", "feature_cols", "threshold"]
-        missing = [k for k in expected_keys if k not in bundle]
-        if missing:
-            inference_mode = "mock"
-            return
+    with open(bundle_path, "rb") as f:
+        bundle = pickle.load(f)
 
-        inference_mode = "pickle"
-        
-        if SHAP_AVAILABLE:
+    expected_keys = ["model", "imputer", "feature_cols"]
+    missing = [k for k in expected_keys if k not in bundle]
+    if missing:
+        raise KeyError(
+            f"Pickle bundle is missing required keys: {missing}. "
+            f"Expected keys: {expected_keys}"
+        )
+
+    if SHAP_AVAILABLE:
+        model = bundle["model"]
+        n_features = len(bundle["feature_cols"])
+
+        # Build a synthetic background dataset from the imputer's learned statistics.
+        # This avoids needing to bundle training data while giving SHAP a
+        # reasonable baseline for computing feature contributions.
+        background = None
+        imputer = bundle["imputer"]
+        if hasattr(imputer, "statistics_"):
+            background = np.tile(
+                imputer.statistics_.astype(np.float32), (50, 1)
+            )
+
+        try:
+            # Use TreeExplainer for tree-based models (LightGBM/XGBoost/RF)
+            explainer = shap.TreeExplainer(model)
+            print("✅ SHAP TreeExplainer initialized.")
+        except Exception as e:
+            print(f"⚠️  TreeExplainer not applicable: {e}")
             try:
-                # Use TreeExplainer for LightGBM/XGBoost/RandomForest
-                explainer = shap.TreeExplainer(bundle["model"])
-                print("✅ SHAP TreeExplainer initialized.")
-            except Exception as e:
-                print(f"⚠️  Could not initialize SHAP TreeExplainer: {e}")
+                # Use LinearExplainer for linear models (LogisticRegression, etc.)
+                if background is not None:
+                    explainer = shap.LinearExplainer(model, background)
+                    print("✅ SHAP LinearExplainer initialized.")
+                else:
+                    raise ValueError("No background data for LinearExplainer")
+            except Exception as e2:
+                print(f"⚠️  LinearExplainer not applicable: {e2}")
                 try:
-                    # Fallback to generic Explainer for broader model compatibility
-                    explainer = shap.Explainer(bundle["model"])
-                    print("✅ SHAP generic Explainer initialized.")
-                except:
-                    print("⚠️  SHAP initialization failed completely.")
-        
-        return
-
-    inference_mode = "mock"
+                    # Final fallback: KernelExplainer (model-agnostic, slower)
+                    if background is not None:
+                        explainer = shap.KernelExplainer(
+                            model.predict_proba, background
+                        )
+                        print("✅ SHAP KernelExplainer initialized.")
+                    else:
+                        raise ValueError("No background data for KernelExplainer")
+                except Exception as e3:
+                    print(f"⚠️  SHAP initialization failed completely: {e3}")
 
 
 def _extract_shap_values_for_default(shap_output):
@@ -117,53 +136,20 @@ def get_explanations(input_imputed, feature_names):
             values = _extract_shap_values_for_default(explanation.values)
 
         # Create list of (feature, value) pairs
-        contributions = []
-        for i, val in enumerate(values):
-            contributions.append({
-                "feature": feature_names[i],
-                "value": float(val)
-            })
-        
+        contributions = [
+            {"feature": feature_names[i], "value": float(val)}
+            for i, val in enumerate(values)
+        ]
+
         # Sort by absolute impact
         contributions.sort(key=lambda x: abs(x["value"]), reverse=True)
-        return contributions[:5] # Top 5 contributors
+        return contributions[:5]  # Top 5 contributors
     except Exception as e:
         print(f"Error calculating SHAP: {e}")
         return None
 
 
-def predict_onnx(features):
-    """Run inference using ONNX runtime."""
-    ordered = [features[col] for col in metadata["feature_columns"]]
-    input_array = np.array([ordered], dtype=np.float32)
-
-    imputer_input = {imputer_session.get_inputs()[0].name: input_array}
-    imputed_array = imputer_session.run(None, imputer_input)[0]
-
-    model_input = {model_session.get_inputs()[0].name: imputed_array.astype(np.float32)}
-    outputs = model_session.run(None, model_input)
-
-    proba_default = float(outputs[1][0][1])
-    threshold = metadata["threshold"]
-    prediction = int(proba_default >= threshold)
-
-    # Mock explanations for ONNX since full SHAP setup for ONNX is heavy
-    mock_explanations = [
-        {"feature": metadata["feature_columns"][0], "value": 0.15},
-        {"feature": metadata["feature_columns"][1], "value": -0.1},
-        {"feature": metadata["feature_columns"][2], "value": 0.05}
-    ]
-
-    return {
-        "prediction": prediction,
-        "probability": round(proba_default, 4),
-        "threshold_used": threshold,
-        "label": "Default" if prediction == 1 else "No Default",
-        "explanations": mock_explanations
-    }
-
-
-def predict_pickle(features):
+def predict(features):
     """Run inference using the pickle bundle."""
     feature_names = bundle["feature_cols"]
     ordered = [features[col] for col in feature_names]
@@ -171,9 +157,9 @@ def predict_pickle(features):
     input_imputed = bundle["imputer"].transform(input_array)
 
     proba = bundle["model"].predict_proba(input_imputed)[0][1]
-    threshold = 0.2
+    threshold = bundle.get("threshold", 0.2)
     prediction = int(proba >= threshold)
-    
+
     explanations = get_explanations(input_imputed, feature_names)
 
     return {
@@ -181,12 +167,12 @@ def predict_pickle(features):
         "probability": round(float(proba), 4),
         "threshold_used": threshold,
         "label": "Default" if prediction == 1 else "No Default",
-        "explanations": explanations
+        "explanations": explanations,
     }
 
 
 @app.route("/predict", methods=["POST"])
-def predict():
+def predict_route():
     """Run inference on the submitted features."""
     try:
         body = request.get_json()
@@ -194,9 +180,9 @@ def predict():
 
         if not features:
             return jsonify({"error": "Missing 'features' in request body"}), 400
-        
-        result = predict_pickle(features)
-        
+
+        result = predict(features)
+
         return jsonify(result)
 
     except Exception as e:
@@ -211,5 +197,5 @@ def index():
 
 if __name__ == "__main__":
     load_models()
-    print(f"\n🚀 Loan Predictor API running at http://localhost:5002")
+    print("\n🚀 Loan Predictor API running at http://localhost:5002")
     app.run(host="0.0.0.0", port=5002, debug=True)
