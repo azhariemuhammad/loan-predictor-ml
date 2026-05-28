@@ -199,7 +199,10 @@ def index():
     return send_from_directory(".", "index.html")
 
 
+# Load models eagerly at module import time (necessary for Gunicorn/production servers)
+load_models()
+
+
 if __name__ == "__main__":
-    load_models()
     print("\n🚀 Loan Predictor API running at http://localhost:5002")
     app.run(host="0.0.0.0", port=5002, debug=True)

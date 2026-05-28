@@ -1,6 +1,9 @@
-// API Configuration
-// If served from Flask (port 5002), use relative paths. Otherwise, point to the Flask server.
-const API_BASE = window.location.port === '5002' ? '' : 'http://localhost:5002';
+// Dynamically resolve API_BASE to support Render (same origin) and local environments
+const API_BASE = (window.location.protocol === 'file:' || !window.location.hostname)
+    ? 'http://localhost:5002'
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? (window.location.port === '5002' ? '' : 'http://localhost:5002')
+        : '';
 
 // ═══════════════════════════════════════════════════════════════════
 //  SCORING ENGINE — Converts real-world inputs to 0-4 scores
