@@ -58,9 +58,11 @@ body {
     }
 }
 
-.sticky-panel {
-    position: sticky;
+.fixed-panel {
+    position: fixed;
     top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
 }
 
 .empty-state {
@@ -253,6 +255,8 @@ body {
 .info-icon {
     width: 14px;
     height: 14px;
+    position: relative;
+    top: -10px;
     color: hsl(var(--muted-foreground));
     transition: color 0.15s ease;
 }
@@ -338,6 +342,32 @@ input[type=number] {
     margin-bottom: 0.75rem;
 }
 
+.score-summary-result {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.grade-with-info {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.score-grade {
+    font-size: 0.875rem;
+    font-weight: 700;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    color: white;
+}
+
+.grade-a { background-color: #228b22; }
+.grade-b { background-color: #ffd700; color: #000; }
+.grade-c { background-color: #ff8c00; }
+.grade-d { background-color: #ff4500; }
+.grade-e { background-color: #8b0000; }
+
 .score-summary-title {
     font-size: 0.75rem;
     font-weight: 600;
@@ -358,8 +388,13 @@ input[type=number] {
     gap: 0.5rem;
 }
 
+/* Maintain 2 columns in the sidebar even on larger screens */
+.right-column .score-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
 @media (min-width: 768px) {
-    .score-summary-grid {
+    .left-column .score-summary-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }

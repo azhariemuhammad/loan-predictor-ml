@@ -142,8 +142,10 @@ def get_explanations(input_imputed, feature_names):
         ]
 
         # Sort by absolute impact
+        print(contributions)
+        contributions = [c for c in contributions if c["value"] != 0]
         contributions.sort(key=lambda x: abs(x["value"]), reverse=True)
-        return contributions[:5]  # Top 5 contributors
+        return contributions  # Top 5 contributors
     except Exception as e:
         print(f"Error calculating SHAP: {e}")
         return None
@@ -157,7 +159,9 @@ def predict(features):
     input_imputed = bundle["imputer"].transform(input_array)
 
     proba = bundle["model"].predict_proba(input_imputed)[0][1]
-    threshold = bundle.get("threshold", 0.2)
+    print("----")
+    print(proba)
+    threshold = bundle.get("threshold", 0.6)
     prediction = int(proba >= threshold)
 
     explanations = get_explanations(input_imputed, feature_names)

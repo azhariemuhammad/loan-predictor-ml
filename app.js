@@ -229,7 +229,29 @@ const randomSampleBtn = document.getElementById('random-sample-btn');
 const scoreSummary = document.getElementById('score-summary');
 const scoreGrid = document.getElementById('score-grid');
 const totalWeightedScore = document.getElementById('total-weighted-score');
+const toggleScorecardBtn = document.getElementById('toggle-scorecard-btn');
+const scoreGrade = document.getElementById('score-grade');
 
+let scorecardVisible = false;
+
+/**
+ * Maps percentage score to Grade based on scorecard rules
+ */
+function calculateGrade(score) {
+    if (score > 95) return { label: 'A1', class: 'grade-a' };
+    if (score > 90) return { label: 'A2', class: 'grade-a' };
+    if (score > 85) return { label: 'A3', class: 'grade-a' };
+    if (score > 80) return { label: 'B1', class: 'grade-b' };
+    if (score > 75) return { label: 'B2', class: 'grade-b' };
+    if (score > 70) return { label: 'B3', class: 'grade-b' };
+    if (score > 65) return { label: 'C1', class: 'grade-c' };
+    if (score > 60) return { label: 'C2', class: 'grade-c' };
+    if (score > 55) return { label: 'C3', class: 'grade-c' };
+    if (score > 50) return { label: 'D1', class: 'grade-d' };
+    if (score > 45) return { label: 'D2', class: 'grade-d' };
+    if (score > 40) return { label: 'D3', class: 'grade-d' };
+    return { label: 'E', class: 'grade-e' };
+}
 
 // ═══════════════════════════════════════════════════════════════════
 //  Score Preview — Updates live as user fills the form
@@ -239,9 +261,11 @@ function updateScorePreview() {
     const result = convertToScores();
     if (!result) {
         scoreSummary.classList.add('hidden');
+        toggleScorecardBtn.disabled = true;
         return;
     }
 
+    toggleScorecardBtn.disabled = false;
     const { scores } = result;
     let totalWeighted = 0;
     let maxWeighted = 0;
@@ -263,19 +287,27 @@ function updateScorePreview() {
         scoreGrid.appendChild(item);
     });
 
-    const pct = ((totalWeighted / maxWeighted) * 100).toFixed(1);
-    totalWeightedScore.textContent = `${pct}%`;
+    const pct = ((totalWeighted / maxWeighted) * 100).toFixed(0);
+    totalWeightedScore.textContent = pct;
 
-    scoreSummary.classList.remove('hidden');
+    const grade = calculateGrade(parseFloat(pct));
+    scoreGrade.textContent = grade.label;
+    scoreGrade.className = `score-grade ${grade.class}`;
+
+    if (scorecardVisible) {
+        scoreSummary.classList.remove('hidden');
+    }
 }
 
-// Attach live preview to all form inputs
-document.querySelectorAll('#prediction-form input, #prediction-form select').forEach(el => {
-    el.addEventListener('input', updateScorePreview);
-    el.addEventListener('change', updateScorePreview);
+// UI Initialization
+toggleScorecardBtn.disabled = true;
+
+// Toggle Scorecard
+toggleScorecardBtn.addEventListener('click', () => {
+    scorecardVisible = !scorecardVisible;
+    scoreSummary.classList.toggle('hidden');
+    toggleScorecardBtn.textContent = scorecardVisible ? 'Hide Scorecard Preview' : 'Show Scorecard Preview';
 });
-
-
 // ═══════════════════════════════════════════════════════════════════
 //  UI Helpers
 // ═══════════════════════════════════════════════════════════════════
@@ -355,6 +387,9 @@ form.addEventListener('submit', async (e) => {
         return;
     }
 
+    // Update scorecard after Analyze Risk is clicked
+    updateScorePreview();
+
     setLoading(true);
     resultContainer.classList.add('hidden');
 
@@ -372,7 +407,7 @@ form.addEventListener('submit', async (e) => {
         }
 
         displayResult(data);
-        switchToResultTabOnMobile();
+        switchToResultTab();
     } catch (error) {
         console.error('Inference Error:', error);
         alert(`Error: ${error.message || 'Failed to connect to local API. Is server.py running?'}`);
@@ -444,9 +479,6 @@ function fillRandomSample() {
         }
     });
 
-    // Trigger score preview update
-    updateScorePreview();
-
     // Pulse effect on inputs
     const inputs = form.querySelectorAll('input, select');
     inputs.forEach(input => {
@@ -488,13 +520,9 @@ if (mobileTabContainer && appContainer) {
 }
 
 /**
- * Auto-switch to the Result tab on mobile after a successful prediction.
- * Uses matchMedia so it only triggers when the tab bar is actually visible.
+ * Auto-switch to the Result tab after a successful prediction.
  */
-function switchToResultTabOnMobile() {
-    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-    if (!isMobile) return;
-
+function switchToResultTab() {
     const resultTab = document.getElementById('tab-result');
     if (resultTab) {
         resultTab.click();
